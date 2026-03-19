@@ -1,5 +1,5 @@
 # 1. Скачать скрипт
-wget https://raw.githubusercontent.com/yourusername/jitsi-meet-planner/main/install.sh](http://raw.githubusercontent.com/ub3afv/Jitsy_planner/refs/heads/main/install.sh
+wget http://raw.githubusercontent.com/ub3afv/Jitsy_planner/refs/heads/main/install.sh
 
 # 2. Дать права на выполнение
 chmod +x install.sh
