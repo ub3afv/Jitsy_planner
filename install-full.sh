@@ -4,10 +4,11 @@
 # Jitsi Meet Planner — Полная установка для Ubuntu 24.04
 # ============================================================================
 # ✅ Исправлены ошибки 404 репозиториев
-# ✅ Установка Node.js 20.x через бинарники (без репозиториев)
-# ✅ Установка MongoDB 7.0 через jammy repo (совместимый с noble)
-# ✅ Полный интерфейс: вход через Nextcloud + стандартная регистрация
-# ✅ Админ-панель с переключателем "Разрешить регистрацию по почте"
+# ✅ Установка Node.js 20.x через бинарники
+# ✅ Установка MongoDB 7.0 через jammy repo
+# ✅ Полный интерфейс с двумя кнопками входа
+# ✅ Управление регистрацией в админ-панели
+# ✅ Автоматическое создание администратора: admin@praxis-ovo.com / Jitsy2026
 # ============================================================================
 
 set -e
@@ -40,7 +41,7 @@ check_os() {
   exit 1
 }
 
-# 🔥 КРИТИЧЕСКИ ВАЖНО: Очистка старых репозиториев ДО обновления
+# Очистка старых репозиториев ДО обновления
 cleanup_old_repos() {
   print_header "Очистка старых репозиториев"
   rm -f /etc/apt/sources.list.d/nodesource*.list /etc/apt/sources.list.d/mongodb*.list 2>/dev/null || true
@@ -63,7 +64,7 @@ install_utils() {
   print_success "Утилиты установлены"
 }
 
-# 🔥 Установка через ОФИЦИАЛЬНЫЕ БИНАРНИКИ (без проблем с репозиториями)
+# Установка через официальные бинарники Node.js 20.x
 install_nodejs() {
   print_header "Установка Node.js 20.x через официальные бинарники"
   
@@ -97,14 +98,13 @@ install_nodejs() {
   fi
 }
 
-# 🔥 MongoDB 7.0 через репозиторий jammy (проверено для noble)
+# Установка MongoDB 7.0 через репозиторий jammy
 install_mongodb() {
   print_header "Установка MongoDB 7.0 (через репозиторий jammy)"
   
   curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
     gpg --dearmor | tee /usr/share/keyrings/mongodb.gpg >/dev/null
   
-  # 🔥 jammy вместо noble (официально рекомендовано для новых версий)
   echo "deb [signed-by=/usr/share/keyrings/mongodb.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | \
     tee /etc/apt/sources.list.d/mongodb-org-7.0.list >/dev/null
   
@@ -131,7 +131,7 @@ create_user() {
   print_success "Пользователь jitsi-planner создан"
 }
 
-# Создание полной структуры приложения с поддержкой флага регистрации
+# Создание полной структуры приложения с исправленными файлами
 create_app_structure() {
   print_header "Создание полной структуры приложения"
   cd /opt/jitsi-planner
@@ -139,7 +139,7 @@ create_app_structure() {
   # Создание каталогов
   mkdir -p server/{models,routes,middleware,config} public/{css,js,img}
   
-  # Модель настроек системы (для флага регистрации)
+  # Модель настроек системы
   cat > server/models/Settings.js <<'EOF'
 const mongoose = require('mongoose');
 
@@ -170,7 +170,6 @@ const settingsSchema = new mongoose.Schema({
   }
 });
 
-// Singleton pattern - только одна запись настроек
 settingsSchema.statics.getSettings = async function() {
   let settings = await this.findOne();
   if (!settings) {
@@ -198,7 +197,7 @@ settingsSchema.statics.updateSettings = async function(updates) {
 module.exports = mongoose.model('Settings', settingsSchema);
 EOF
 
-  # Обновленная модель пользователя
+  # Модель пользователя
   cat > server/models/User.js <<'EOF'
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -313,7 +312,6 @@ exports.admin = (req, res, next) => {
   next();
 };
 
-// Middleware для проверки разрешения регистрации
 exports.checkRegistrationAllowed = async (req, res, next) => {
   const Settings = require('../models/Settings');
   const settings = await Settings.getSettings();
@@ -327,7 +325,7 @@ exports.checkRegistrationAllowed = async (req, res, next) => {
 };
 EOF
 
-  # Маршруты аутентификации (с проверкой флага регистрации)
+  # 🔧 ИСПРАВЛЕННЫЙ МАРШРУТ АУТЕНТИФИКАЦИИ (без ошибки с переменной role)
   cat > server/routes/auth.js <<'EOF'
 const express = require('express');
 const router = express.Router();
@@ -340,12 +338,11 @@ const NEXTCLOUD_CONFIG = require('../config/nextcloud');
 const axios = require('axios');
 const crypto = require('crypto');
 
-// Публичная конфигурация
 router.get('/config/public', async (req, res) => {
   try {
     const settings = await Settings.getSettings();
     res.json({
-      ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@praxis-ovo.ru',
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@praxis-ovo.com',
       NEXTCLOUD_OAUTH_ENABLED: process.env.NEXTCLOUD_OAUTH_ENABLED === 'true' && settings.allowNextcloudOAuth,
       ALLOW_EMAIL_REGISTRATION: settings.allowEmailRegistration,
       JITSI_DOMAIN: process.env.JITSI_DOMAIN || 'meet.praxis-ovo.ru'
@@ -355,7 +352,6 @@ router.get('/config/public', async (req, res) => {
   }
 });
 
-// Регистрация с проверкой флага
 router.post('/register', [
   body('email').isEmail().withMessage('Неверный формат email'),
   body('password').isLength({ min: 6 }).withMessage('Пароль должен быть минимум 6 символов'),
@@ -368,11 +364,14 @@ router.post('/register', [
     const { email, password, name } = req.body;
     if (await User.findOne({ email })) return res.status(400).json({ error: 'Пользователь существует' });
 
+    // 🔧 ИСПРАВЛЕНО: правильно определяем роль через переменную
+    const userRole = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
+
     const user = new User({
       email,
       password,
       name,
-      role: email === process.env.ADMIN_EMAIL ? 'admin' : 'user',
+      role: userRole,
       authProvider: 'local'
     });
 
@@ -384,14 +383,13 @@ router.post('/register', [
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user._id, email, name, role } });
+    res.json({ token, user: { id: user._id, email, name, role: user.role } });
   } catch (error) {
     console.error('Ошибка регистрации:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// Вход
 router.post('/login', [
   body('email').isEmail().withMessage('Неверный формат email'),
   body('password').notEmpty().withMessage('Пароль обязателен')
@@ -415,14 +413,13 @@ router.post('/login', [
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user._id, email, name, role } });
+    res.json({ token, user: { id: user._id, email, name, role: user.role } });
   } catch (error) {
     console.error('Ошибка входа:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// Получение текущего пользователя
 router.get('/me', async (req, res) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -438,7 +435,6 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Начало авторизации через Nextcloud OAuth2
 router.get('/nextcloud', async (req, res) => {
   const settings = await Settings.getSettings();
   if (!settings.allowNextcloudOAuth || process.env.NEXTCLOUD_OAUTH_ENABLED !== 'true') {
@@ -460,7 +456,6 @@ router.get('/nextcloud', async (req, res) => {
   res.redirect(authUrl.toString());
 });
 
-// Callback от Nextcloud
 router.get('/nextcloud/callback', async (req, res) => {
   try {
     const settings = await Settings.getSettings();
@@ -475,7 +470,6 @@ router.get('/nextcloud/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.status(400).send('Не получен код авторизации');
 
-    // Обмен кода на токен
     const tokenResponse = await axios.post(NEXTCLOUD_CONFIG.oauth.tokenUrl, 
       new URLSearchParams({
         client_id: NEXTCLOUD_CONFIG.oauth.clientId,
@@ -489,7 +483,6 @@ router.get('/nextcloud/callback', async (req, res) => {
 
     const { access_token: accessToken } = tokenResponse.data;
 
-    // Получение данных пользователя
     const userResponse = await axios.get(NEXTCLOUD_CONFIG.oauth.userInfoUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'OCS-APIRequest': 'true' }
     });
@@ -499,16 +492,18 @@ router.get('/nextcloud/callback', async (req, res) => {
     const email = userData.email || `${nextcloudUserId}@praxis-ovo.ru`;
     const name = userData.displayname || userData.id;
 
-    // Поиск или создание пользователя
     let user = await User.findOne({ $or: [{ email }, { nextcloudId: nextcloudUserId }] });
     if (!user) {
+      // 🔧 ИСПРАВЛЕНО: правильно определяем роль через переменную
+      const userRole = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
+      
       user = new User({
         email,
         name,
         authProvider: 'nextcloud',
         nextcloudId: nextcloudUserId,
         nextcloudAccessToken: accessToken,
-        role: email === process.env.ADMIN_EMAIL ? 'admin' : 'user'
+        role: userRole
       });
     } else {
       user.authProvider = 'nextcloud';
@@ -520,14 +515,12 @@ router.get('/nextcloud/callback', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Генерация JWT токена
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role, authProvider: user.authProvider },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '7d' }
     );
 
-    // Простое перенаправление с токеном
     res.send(`
       <html>
         <head><title>Авторизация успешна</title></head>
@@ -565,7 +558,6 @@ const { auth } = require('../middleware/auth');
 const Conference = require('../models/Conference');
 const User = require('../models/User');
 
-// Получение конференций пользователя
 router.get('/my', auth, async (req, res) => {
   try {
     const conferences = await Conference.find({
@@ -579,7 +571,6 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
-// Создание конференции
 router.post('/', auth, async (req, res) => {
   try {
     const { title, description, date, duration, participants } = req.body;
@@ -588,7 +579,6 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Требуются название, дата и продолжительность' });
     }
 
-    // Генерация уникального имени комнаты
     const roomName = title.toLowerCase()
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
@@ -618,13 +608,11 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Удаление конференции
 router.delete('/:id', auth, async (req, res) => {
   try {
     const conference = await Conference.findById(req.params.id);
     if (!conference) return res.status(404).json({ error: 'Конференция не найдена' });
     
-    // Проверка прав доступа
     if (conference.createdBy.toString() !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Доступ запрещен' });
     }
@@ -641,7 +629,7 @@ router.delete('/:id', auth, async (req, res) => {
 module.exports = router;
 EOF
 
-  # Маршруты администрирования (с управлением настройками)
+  # Маршруты администрирования
   cat > server/routes/admin.js <<'EOF'
 const express = require('express');
 const router = express.Router();
@@ -650,7 +638,6 @@ const User = require('../models/User');
 const Conference = require('../models/Conference');
 const Settings = require('../models/Settings');
 
-// Получение статистики
 router.get('/stats', auth, admin, async (req, res) => {
   try {
     const [totalUsers, totalConferences, activeConferences, calendarSynced] = await Promise.all([
@@ -671,7 +658,6 @@ router.get('/stats', auth, admin, async (req, res) => {
   }
 });
 
-// Получение всех пользователей
 router.get('/users', auth, admin, async (req, res) => {
   try {
     const users = await User.find().select('-password -nextcloudAccessToken -nextcloudRefreshToken').sort({ createdAt: -1 });
@@ -681,7 +667,6 @@ router.get('/users', auth, admin, async (req, res) => {
   }
 });
 
-// Получение всех конференций
 router.get('/conferences/all', auth, admin, async (req, res) => {
   try {
     const conferences = await Conference.find()
@@ -693,7 +678,6 @@ router.get('/conferences/all', auth, admin, async (req, res) => {
   }
 });
 
-// Получение настроек системы
 router.get('/settings', auth, admin, async (req, res) => {
   try {
     const settings = await Settings.getSettings();
@@ -703,7 +687,6 @@ router.get('/settings', auth, admin, async (req, res) => {
   }
 });
 
-// Обновление настроек системы
 router.put('/settings', auth, admin, async (req, res) => {
   try {
     const { allowEmailRegistration, allowNextcloudOAuth, nextcloudCalendarEnabled } = req.body;
@@ -761,13 +744,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/conferences', require('./routes/conferences'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/health', require('./routes/health'));
 
-// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -815,7 +796,7 @@ EOF
 }
 EOF
 
-  # Создание интерфейса - стили
+  # Стили
   mkdir -p public/css
   cat > public/css/main.css <<'EOF'
 :root {
@@ -854,7 +835,6 @@ body {
   padding: 0 20px;
 }
 
-/* Навигация */
 nav {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
@@ -947,7 +927,6 @@ nav {
   font-size: 18px;
 }
 
-/* Страницы */
 .page {
   display: none;
   padding: 40px 0;
@@ -984,7 +963,6 @@ nav {
   margin: 0 auto;
 }
 
-/* Карточки */
 .card {
   background: white;
   border-radius: var(--border-radius);
@@ -1086,7 +1064,6 @@ nav {
   font-size: 20px;
 }
 
-/* Формы */
 .form-group {
   margin-bottom: 28px;
 }
@@ -1124,7 +1101,6 @@ nav {
   flex: 1;
 }
 
-/* Список конференций */
 .conference-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -1241,7 +1217,6 @@ nav {
   background: rgba(76, 175, 80, 0.25);
 }
 
-/* Empty state */
 .empty-state {
   text-align: center;
   padding: 80px 40px;
@@ -1267,7 +1242,6 @@ nav {
   line-height: 1.8;
 }
 
-/* Табы */
 .tabs {
   display: flex;
   gap: 8px;
@@ -1309,7 +1283,6 @@ nav {
   border-radius: 3px 3px 0 0;
 }
 
-/* Статистика */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1377,7 +1350,6 @@ nav {
   font-weight: 600;
 }
 
-/* Таблицы */
 .table-container {
   overflow-x: auto;
   margin-top: 30px;
@@ -1433,7 +1405,6 @@ tr:hover {
   color: var(--danger);
 }
 
-/* Модальные окна */
 .modal {
   display: none;
   position: fixed;
@@ -1482,7 +1453,6 @@ tr:hover {
   transform: rotate(90deg);
 }
 
-/* Алерты */
 .alert {
   padding: 20px 25px;
   border-radius: 14px;
@@ -1512,7 +1482,6 @@ tr:hover {
   border: 1px solid #bee5eb;
 }
 
-/* Footer */
 footer {
   text-align: center;
   color: rgba(255, 255, 255, 0.8);
@@ -1528,7 +1497,6 @@ footer a {
   font-weight: 600;
 }
 
-/* Присоединение к встрече */
 .join-container {
   max-width: 700px;
   margin: 60px auto;
@@ -1571,7 +1539,6 @@ footer a {
   margin-top: 30px;
 }
 
-/* Страница входа */
 .auth-container {
   background: rgba(255, 255, 255, 0.96);
   border-radius: var(--border-radius);
@@ -1669,7 +1636,6 @@ footer a {
   text-decoration: none;
 }
 
-/* Анимации загрузки */
 .spinner {
   width: 60px;
   height: 60px;
@@ -1691,12 +1657,10 @@ footer a {
   color: white;
 }
 
-/* Скрытие элементов */
 .hidden {
   display: none !important;
 }
 
-/* Toggle switch */
 .toggle-container {
   display: flex;
   align-items: center;
@@ -2364,7 +2328,6 @@ async function loadSystemInfo() {
   }
 }
 
-// Загрузка и управление настройками системы
 async function loadSettings() {
   try {
     const token = getAuthToken();
@@ -2376,12 +2339,10 @@ async function loadSettings() {
     
     const settings = await response.json();
     
-    // Установка состояния переключателей
     document.getElementById('toggle-email-registration').checked = settings.allowEmailRegistration;
     document.getElementById('toggle-nextcloud-oauth').checked = settings.allowNextcloudOAuth;
     document.getElementById('toggle-calendar-sync').checked = settings.nextcloudCalendarEnabled;
     
-    // Обработчики изменений
     document.getElementById('toggle-email-registration').addEventListener('change', (e) => {
       updateSetting('allowEmailRegistration', e.target.checked);
     });
@@ -2413,7 +2374,6 @@ async function updateSetting(key, value) {
     
     if (!response.ok) throw new Error('Ошибка обновления настройки');
     
-    // Показать уведомление
     const container = document.createElement('div');
     container.className = 'alert alert-success';
     container.style.position = 'fixed';
@@ -2452,14 +2412,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabName = tab.getAttribute('data-tab');
       document.getElementById(`tab-${tabName}`).style.display = 'block';
       
-      // Загрузка данных для вкладки настроек
       if (tabName === 'settings') {
         loadSettings();
       }
     });
   });
   
-  // Кнопка добавления пользователя
   document.getElementById('btn-add-user')?.addEventListener('click', () => {
     alert('Функция добавления пользователя (в разработке)');
   });
@@ -2595,7 +2553,6 @@ EOF
             window.location.href = '/register.html';
         });
         
-        // Проверка разрешения регистрации
         fetch('/api/auth/config/public')
           .then(response => response.json())
           .then(data => {
@@ -3390,7 +3347,7 @@ NEXTCLOUD_OAUTH_REDIRECT_URI=https://meet.praxis-ovo.ru/api/auth/nextcloud/callb
 NEXTCLOUD_OAUTH_SCOPES=openid,profile,email
 
 # Администратор
-ADMIN_EMAIL=admin@praxis-ovo.ru
+ADMIN_EMAIL=admin@praxis-ovo.com
 
 # Jitsi Meet
 JITSI_DOMAIN=meet.praxis-ovo.ru
@@ -3399,7 +3356,6 @@ EOF
   chown jitsi-planner:jitsi-planner "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   print_success "Файл .env создан: $ENV_FILE"
-  print_warning "ВАЖНО: Настройте параметры в .env перед использованием!"
 }
 
 setup_systemd() {
@@ -3498,6 +3454,82 @@ EOF
   nginx -t && systemctl reload nginx && print_success "Nginx настроен"
 }
 
+# 🔑 Создание администратора с учетными данными admin / Jitsy2026
+create_admin_user() {
+  print_header "Создание администратора: admin@praxis-ovo.com / Jitsy2026"
+  
+  cat > /tmp/create-admin.js <<'EOF'
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+// Подключение к БД
+mongoose.connect('mongodb://localhost:27017/jitsi-planner', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+
+// Модель пользователя
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, minlength: 6 },
+  name: { type: String, required: true, trim: true },
+  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  authProvider: { type: String, enum: ['local', 'nextcloud'], default: 'local' }
+});
+
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password') || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+const User = mongoose.model('User', userSchema);
+
+async function createAdmin() {
+  try {
+    // Проверка существующего администратора
+    const existingAdmin = await User.findOne({ email: 'admin@praxis-ovo.com' });
+    if (existingAdmin) {
+      console.log('⚠ Администратор уже существует:', existingAdmin.email);
+      process.exit(0);
+    }
+    
+    // Создание администратора
+    const admin = new User({
+      email: 'admin@praxis-ovo.com',
+      password: 'Jitsy2026',
+      name: 'Администратор',
+      role: 'admin',
+      authProvider: 'local'
+    });
+    
+    await admin.save();
+    console.log('✅ Администратор успешно создан:');
+    console.log('   Email: admin@praxis-ovo.com');
+    console.log('   Пароль: Jitsy2026');
+    console.log('   Роль: admin');
+    
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Ошибка создания администратора:', error.message);
+    process.exit(1);
+  }
+}
+
+createAdmin();
+EOF
+
+  # Запуск скрипта создания администратора
+  cd /opt/jitsi-planner
+  sudo -u jitsi-planner node /tmp/create-admin.js || {
+    print_error "Не удалось создать администратора. Проверьте логи MongoDB."
+    exit 1
+  }
+  
+  rm -f /tmp/create-admin.js
+  print_success "Администратор создан: admin@praxis-ovo.com / Jitsy2026"
+}
+
 verify_installation() {
   print_header "Проверка установки"
   
@@ -3508,61 +3540,54 @@ verify_installation() {
 }
 
 show_completion() {
-  ADMIN_EMAIL=$(grep ADMIN_EMAIL /opt/jitsi-planner/.env | cut -d'=' -f2 | tr -d ' ' || echo "admin@praxis-ovo.ru")
-  
   cat <<EOF
 
 ${GREEN}================================================${NC}
 ${GREEN}✅ Установка для Ubuntu 24.04 завершена!${NC}
 ${GREEN}================================================${NC}
 
-${YELLOW}🔑 Ключевые возможности:${NC}
-  • Две кнопки входа: через Nextcloud + стандартная регистрация
-  • Автоматическая синхронизация с календарем Nextcloud
-  • Админ-панель с переключателем "Разрешить регистрацию по почте"
-  • Полноценный интерфейс планирования встреч
+${YELLOW}🔑 Учетные данные администратора:${NC}
+   Email:    admin@praxis-ovo.com
+   Пароль:   Jitsy2026
+   Роль:     Администратор системы
 
-${YELLOW}1. Настройте конфигурацию:${NC}
-   nano /opt/jitsi-planner/.env
-   
-   Обязательно укажите:
-   • NEXTCLOUD_USERNAME / PASSWORD для календаря
-   • Измените ADMIN_EMAIL: ${ADMIN_EMAIL}
-   
-   Для входа через Nextcloud:
-   • NEXTCLOUD_OAUTH_ENABLED=true
-   • Настройте OAuth2 клиент в Nextcloud → Безопасность → OAuth 2.0
+${YELLOW}📋 Следующие шаги:${NC}
 
-${YELLOW}2. Настройка OAuth2 в Nextcloud:${NC}
+1. ${YELLOW}Настройте SSL сертификат (обязательно!):${NC}
+   sudo apt install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d meet.praxis-ovo.ru
+
+2. ${YELLOW}Настройте интеграцию с Nextcloud (опционально):${NC}
    a. Откройте: https://cloud.praxis-ovo.ru/settings/admin/security
-   b. "OAuth 2.0" → "Добавить клиент"
-   c. Имя: Jitsi Meet Planner
-   d. Редирект: https://meet.praxis-ovo.ru/api/auth/nextcloud/callback
-   e. Скопируйте Client ID/Secret в .env
+   b. Перейдите: «Безопасность» → «OAuth 2.0»
+   c. Добавьте клиент:
+        Имя: Jitsi Meet Planner
+        Редирект: https://meet.praxis-ovo.ru/api/auth/nextcloud/callback
+   d. Скопируйте Client ID и Secret
+   e. Откройте: sudo nano /opt/jitsi-planner/.env
+   f. Укажите:
+        NEXTCLOUD_OAUTH_ENABLED=true
+        NEXTCLOUD_OAUTH_CLIENT_ID=ваш_client_id
+        NEXTCLOUD_OAUTH_CLIENT_SECRET=ваш_client_secret
+   g. Перезапустите: sudo systemctl restart jitsi-planner
 
-${YELLOW}3. Перезапуск:${NC}
-   systemctl restart jitsi-planner
+3. ${YELLOW}Войдите в систему:${NC}
+   Откройте в браузере: ${BLUE}https://meet.praxis-ovo.ru${NC}
+   Используйте учетные данные администратора:
+      Email: admin@praxis-ovo.com
+      Пароль: Jitsy2026
 
-${YELLOW}4. SSL (обязательно!):${NC}
-   apt-get install -y certbot python3-certbot-nginx
-   certbot --nginx -d meet.praxis-ovo.ru
+4. ${YELLOW}Управление регистрацией:${NC}
+   После входа откройте «Администрирование» → «Настройки»
+   Переключите «Разрешить регистрацию по почте» ВКЛ/ВЫКЛ
 
-${YELLOW}5. Управление регистрацией (админ-панель):${NC}
-   • Зайдите в систему под администратором
-   • Откройте "Администрирование" → "Настройки"
-   • Переключите "Разрешить регистрацию по почте" ВКЛ/ВЫКЛ
-   • При отключении: пользователи смогут входить ТОЛЬКО через Nextcloud
+${BLUE}📁 Важные пути:${NC}
+   Приложение:      /opt/jitsi-planner/
+   Конфигурация:    /opt/jitsi-planner/.env
+   Логи приложения: sudo journalctl -u jitsi-planner -f
+   Логи Nginx:      /var/log/nginx/jitsi-planner-*.log
 
-${YELLOW}6. Первый вход:${NC}
-   Откройте: https://meet.praxis-ovo.ru
-   Зарегистрируйтесь с email: ${ADMIN_EMAIL}
-
-${BLUE}📁 Пути:${NC}
-   Приложение: /opt/jitsi-planner/
-   Конфиг:    /opt/jitsi-planner/.env
-   Логи:      journalctl -u jitsi-planner -f
-
-${GREEN}🎉 Готово! Система работает на Ubuntu 24.04${NC}
+${GREEN}🎉 Система готова к использованию!${NC}
 
 EOF
 }
@@ -3574,22 +3599,23 @@ main() {
   check_root
   check_os
   
-  echo; print_warning "Установка: Node.js 20.x (бинарники), MongoDB 7.0 (jammy repo), полный интерфейс"; echo
+  echo; print_warning "Установка: Node.js 20.x, MongoDB 7.0, полный интерфейс"; echo
   read -p "Продолжить? (y/n): " -n1 -r; echo; [[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
   
   echo; print_info "Начинаем установку..."; echo
   
-  cleanup_old_repos    # 🔥 КРИТИЧЕСКИ ВАЖНО: сначала очистка!
+  cleanup_old_repos
   update_system
   install_utils
-  install_nodejs      # 🔥 Бинарники — 100% работает на noble
-  install_mongodb     # 🔥 jammy repo — проверено для noble
+  install_nodejs
+  install_mongodb
   create_user
-  create_app_structure # 🔥 Полный интерфейс + управление регистрацией
+  create_app_structure
   install_dependencies
   create_env_file
   setup_systemd
   setup_nginx
+  create_admin_user  # 🔑 Автоматическое создание администратора
   verify_installation
   
   echo; show_completion
