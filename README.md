@@ -1,11 +1,11 @@
 # 1. Скачать скрипт
-wget https://raw.githubusercontent.com/ub3afv/Jitsy_planner/refs/heads/main/install.sh
+wget http://raw.githubusercontent.com/ub3afv/Jitsy_planner/refs/heads/main/install-full.sh
 
 # 2. Дать права на выполнение
-chmod +x install.sh
+chmod +x install-full.sh
 
 # 3. Запустить установку
-sudo ./install.sh
+sudo ./install-full.sh
 
 
 🔧 Следующие шаги для полной настройки
