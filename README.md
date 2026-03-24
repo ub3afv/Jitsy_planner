@@ -58,3 +58,14 @@ bash
 Автоматически синхронизировать события с календарем Nextcloud
 Входить через корпоративные учетные записи Nextcloud
 Управлять пользователями и конференциями из админ-панели
+
+# 1. Сохраните скрипт
+sudo nano /root/install-jitsi-final.sh
+
+# 2. Вставьте ВЕСЬ код выше (от #!/bin/bash до exit 0)
+
+# 3. Дайте права на выполнение
+sudo chmod +x /root/install-jitsi-final.sh
+
+# 4. Запустите установку
+sudo /root/install-jitsi-final.sh
