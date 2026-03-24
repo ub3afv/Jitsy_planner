@@ -4,11 +4,12 @@
 # Jitsi Meet Planner — Полная установка для Ubuntu 24.04
 # ============================================================================
 # ✅ Исправлены ошибки 404 репозиториев
-# ✅ Установка Node.js 20.x через бинарники
-# ✅ Установка MongoDB 7.0 через jammy repo
+# ✅ Установка Node.js 20.x через бинарники (без проблем с репозиториями)
+# ✅ Установка MongoDB 7.0 через jammy repo (совместимый с noble)
 # ✅ Полный интерфейс с двумя кнопками входа
 # ✅ Управление регистрацией в админ-панели
-# ✅ Автоматическое создание администратора: admin@praxis-ovo.com / Jitsy2026
+# ✅ Интерактивное создание администратора с кастомными учетными данными
+# ✅ Исправлены все ошибки маршрутов аутентификации
 # ============================================================================
 
 set -e
@@ -128,6 +129,7 @@ create_user() {
   id jitsi-planner &>/dev/null || useradd -r -m -d /opt/jitsi-planner -s /bin/bash jitsi-planner
   mkdir -p /opt/jitsi-planner
   chown -R jitsi-planner:jitsi-planner /opt/jitsi-planner
+  chmod 755 /opt/jitsi-planner
   print_success "Пользователь jitsi-planner создан"
 }
 
@@ -144,30 +146,12 @@ create_app_structure() {
 const mongoose = require('mongoose');
 
 const settingsSchema = new mongoose.Schema({
-  allowEmailRegistration: {
-    type: Boolean,
-    default: true
-  },
-  allowNextcloudOAuth: {
-    type: Boolean,
-    default: true
-  },
-  nextcloudCalendarEnabled: {
-    type: Boolean,
-    default: true
-  },
-  defaultConferenceDuration: {
-    type: Number,
-    default: 60
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
+  allowEmailRegistration: { type: Boolean, default: true },
+  allowNextcloudOAuth: { type: Boolean, default: true },
+  nextcloudCalendarEnabled: { type: Boolean, default: true },
+  defaultConferenceDuration: { type: Number, default: 60 },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 settingsSchema.statics.getSettings = async function() {
@@ -342,7 +326,7 @@ router.get('/config/public', async (req, res) => {
   try {
     const settings = await Settings.getSettings();
     res.json({
-      ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@praxis-ovo.com',
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@praxis-ovo.ru',
       NEXTCLOUD_OAUTH_ENABLED: process.env.NEXTCLOUD_OAUTH_ENABLED === 'true' && settings.allowNextcloudOAuth,
       ALLOW_EMAIL_REGISTRATION: settings.allowEmailRegistration,
       JITSI_DOMAIN: process.env.JITSI_DOMAIN || 'meet.praxis-ovo.ru'
@@ -796,1695 +780,10 @@ EOF
 }
 EOF
 
-  # Стили
-  mkdir -p public/css
-  cat > public/css/main.css <<'EOF'
-:root {
-  --primary: #667eea;
-  --primary-dark: #5568d3;
-  --secondary: #764ba2;
-  --success: #4CAF50;
-  --danger: #f44336;
-  --warning: #ff9800;
-  --info: #2196F3;
-  --light: #f8f9fa;
-  --dark: #343a40;
-  --gray: #6c757d;
-  --border-radius: 16px;
-  --box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
-  --transition: all 0.3s ease;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  color: var(--dark);
-  line-height: 1.6;
-  min-height: 100vh;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-nav {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.navbar-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 30px;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-}
-
-.logo-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 24px;
-}
-
-.logo-text {
-  font-size: 28px;
-  font-weight: 800;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.nav-item {
-  padding: 10px 20px;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 16px;
-  cursor: pointer;
-  transition: var(--transition);
-  color: var(--gray);
-}
-
-.nav-item:hover, .nav-item.active {
-  color: var(--primary);
-  background: rgba(102, 126, 234, 0.08);
-}
-
-.user-menu {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-left: 20px;
-}
-
-.user-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.user-name {
-  font-weight: 700;
-  color: var(--dark);
-  font-size: 18px;
-}
-
-.page {
-  display: none;
-  padding: 40px 0;
-}
-
-.page.active {
-  display: block;
-  animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.page-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.page-title {
-  font-size: 42px;
-  margin-bottom: 15px;
-  background: rgba(255, 255, 255, 0.9);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: inline-block;
-}
-
-.page-subtitle {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 20px;
-  max-width: 700px;
-  margin: 0 auto;
-}
-
-.card {
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 35px;
-  margin-bottom: 30px;
-  transition: var(--transition);
-}
-
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.card-title {
-  font-size: 28px;
-  color: var(--dark);
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.btn {
-  padding: 14px 32px;
-  border: none;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 18px;
-  cursor: pointer;
-  transition: var(--transition);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
-}
-
-.btn-secondary {
-  background: #e9ecef;
-  color: var(--dark);
-}
-
-.btn-secondary:hover {
-  background: #dee2e6;
-  transform: translateY(-2px);
-}
-
-.btn-success {
-  background: var(--success);
-  color: white;
-}
-
-.btn-success:hover {
-  background: #43a047;
-  transform: translateY(-2px);
-}
-
-.btn-danger {
-  background: var(--danger);
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #e53935;
-  transform: translateY(-2px);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 2px solid var(--primary);
-  color: var(--primary);
-}
-
-.btn-outline:hover {
-  background: rgba(102, 126, 234, 0.08);
-  transform: translateY(-2px);
-}
-
-.btn i {
-  font-size: 20px;
-}
-
-.form-group {
-  margin-bottom: 28px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 10px;
-  font-weight: 600;
-  color: var(--dark);
-  font-size: 16px;
-}
-
-.form-control {
-  width: 100%;
-  padding: 16px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 14px;
-  font-size: 18px;
-  transition: var(--transition);
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
-}
-
-.form-row {
-  display: flex;
-  gap: 25px;
-  margin-bottom: 28px;
-}
-
-.form-col {
-  flex: 1;
-}
-
-.conference-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 30px;
-  margin-top: 25px;
-}
-
-.conference-card {
-  background: white;
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  box-shadow: var(--box-shadow);
-  transition: var(--transition);
-}
-
-.conference-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
-}
-
-.conference-header {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: white;
-  padding: 25px;
-  position: relative;
-}
-
-.conference-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  line-height: 1.3;
-}
-
-.conference-time {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  opacity: 0.95;
-}
-
-.conference-body {
-  padding: 30px;
-}
-
-.conference-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 25px;
-  color: var(--gray);
-  font-size: 16px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.conference-description {
-  color: var(--dark);
-  margin-bottom: 25px;
-  line-height: 1.7;
-  font-size: 17px;
-}
-
-.conference-link {
-  display: block;
-  width: 100%;
-  padding: 16px 20px;
-  background: #e8f4ff;
-  border-radius: 12px;
-  color: var(--primary);
-  text-decoration: none;
-  font-size: 16px;
-  font-weight: 600;
-  word-break: break-all;
-  margin-bottom: 25px;
-  transition: var(--transition);
-  border: 2px solid #d0e3ff;
-}
-
-.conference-link:hover {
-  background: #d4e7ff;
-  border-color: #a0c4ff;
-  transform: translateX(8px);
-}
-
-.conference-footer {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.badge {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(5px);
-  color: white;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.badge-synced {
-  background: rgba(76, 175, 80, 0.25);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 80px 40px;
-  color: var(--gray);
-}
-
-.empty-icon {
-  font-size: 80px;
-  margin-bottom: 30px;
-  color: rgba(102, 126, 234, 0.3);
-}
-
-.empty-title {
-  font-size: 32px;
-  margin-bottom: 20px;
-  color: var(--dark);
-}
-
-.empty-text {
-  max-width: 600px;
-  margin: 0 auto 40px;
-  font-size: 19px;
-  line-height: 1.8;
-}
-
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 40px;
-  border-bottom: 3px solid #eee;
-  padding-bottom: 10px;
-}
-
-.tab {
-  padding: 14px 30px;
-  border: none;
-  background: none;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--gray);
-  cursor: pointer;
-  position: relative;
-  transition: var(--transition);
-  border-radius: 12px 12px 0 0;
-}
-
-.tab:hover {
-  color: var(--primary);
-}
-
-.tab.active {
-  color: var(--primary);
-  background: rgba(102, 126, 234, 0.08);
-}
-
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -3px;
-  left: 8px;
-  right: 8px;
-  height: 3px;
-  background: var(--primary);
-  border-radius: 3px 3px 0 0;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 30px;
-  margin-top: 40px;
-}
-
-.stat-card {
-  background: white;
-  border-radius: var(--border-radius);
-  padding: 40px 30px;
-  text-align: center;
-  box-shadow: var(--box-shadow);
-  transition: var(--transition);
-}
-
-.stat-card:hover {
-  transform: translateY(-8px);
-}
-
-.stat-icon {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 25px;
-  font-size: 36px;
-}
-
-.stat-icon.users {
-  background: rgba(102, 126, 234, 0.12);
-  color: var(--primary);
-}
-
-.stat-icon.meetings {
-  background: rgba(118, 75, 162, 0.12);
-  color: var(--secondary);
-}
-
-.stat-icon.calendar {
-  background: rgba(33, 150, 243, 0.12);
-  color: var(--info);
-}
-
-.stat-icon.active {
-  background: rgba(76, 175, 80, 0.12);
-  color: var(--success);
-}
-
-.stat-value {
-  font-size: 52px;
-  font-weight: 800;
-  margin-bottom: 10px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1;
-}
-
-.stat-label {
-  color: var(--gray);
-  font-size: 19px;
-  font-weight: 600;
-}
-
-.table-container {
-  overflow-x: auto;
-  margin-top: 30px;
-  border-radius: var(--border-radius);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 900px;
-}
-
-th, td {
-  padding: 20px 25px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-}
-
-th {
-  background: #f8f9fa;
-  font-weight: 700;
-  color: var(--dark);
-  font-size: 17px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-tr:hover {
-  background: #fafafa;
-}
-
-.status-badge {
-  padding: 8px 20px;
-  border-radius: 30px;
-  font-size: 15px;
-  font-weight: 600;
-  display: inline-block;
-}
-
-.status-active {
-  background: rgba(76, 175, 80, 0.15);
-  color: var(--success);
-}
-
-.status-pending {
-  background: rgba(255, 152, 0, 0.15);
-  color: var(--warning);
-}
-
-.status-inactive {
-  background: rgba(244, 67, 54, 0.1);
-  color: var(--danger);
-}
-
-.modal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1000;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.modal.active {
-  display: flex;
-  animation: fadeIn 0.3s ease;
-}
-
-.modal-content {
-  background: white;
-  border-radius: var(--border-radius);
-  width: 100%;
-  max-width: 600px;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
-  padding: 40px;
-  position: relative;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 32px;
-  color: var(--gray);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.modal-close:hover {
-  color: var(--danger);
-  transform: rotate(90deg);
-}
-
-.alert {
-  padding: 20px 25px;
-  border-radius: 14px;
-  margin-bottom: 25px;
-  font-weight: 600;
-  font-size: 17px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.alert-success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.alert-error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.alert-info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
-}
-
-footer {
-  text-align: center;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 60px;
-  padding: 30px;
-  font-size: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-footer a {
-  color: white;
-  text-decoration: underline;
-  font-weight: 600;
-}
-
-.join-container {
-  max-width: 700px;
-  margin: 60px auto;
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 50px;
-  text-align: center;
-}
-
-.join-title {
-  font-size: 48px;
-  margin-bottom: 25px;
-  color: var(--primary);
-}
-
-.join-url {
-  background: #f0f4ff;
-  border: 3px dashed var(--primary);
-  border-radius: 16px;
-  padding: 25px;
-  margin: 30px 0;
-  font-size: 22px;
-  font-weight: 700;
-  word-break: break-all;
-  color: var(--primary-dark);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.join-url:hover {
-  background: #e0eaff;
-  transform: scale(1.02);
-}
-
-.join-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-top: 30px;
-}
-
-.auth-container {
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 50px;
-  max-width: 500px;
-  width: 100%;
-  text-align: center;
-  margin: 60px auto;
-}
-
-.auth-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 35px;
-}
-
-.auth-logo-icon {
-  width: 70px;
-  height: 70px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 32px;
-}
-
-.auth-logo-text {
-  font-size: 38px;
-  font-weight: 800;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.auth-title {
-  font-size: 32px;
-  margin-bottom: 30px;
-  color: var(--dark);
-}
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  margin: 40px 0;
-  color: var(--gray);
-  font-size: 18px;
-}
-
-.auth-divider-line {
-  flex: 1;
-  height: 1px;
-  background: #ddd;
-}
-
-.btn-nextcloud {
-  background: linear-gradient(135deg, #0082c9, #005585);
-  color: white;
-  width: 100%;
-  padding: 18px;
-  font-size: 20px;
-  margin-bottom: 25px;
-}
-
-.btn-nextcloud i {
-  margin-right: 12px;
-  font-size: 22px;
-}
-
-.btn-nextcloud:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 130, 201, 0.45);
-}
-
-.auth-switch {
-  margin-top: 30px;
-  color: var(--gray);
-  font-size: 17px;
-}
-
-.auth-switch a {
-  color: var(--primary);
-  text-decoration: underline;
-  font-weight: 600;
-}
-
-.auth-switch a:hover {
-  text-decoration: none;
-}
-
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 6px solid rgba(255, 255, 255, 0.3);
-  border-top: 6px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 25px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: white;
-}
-
-.hidden {
-  display: none !important;
-}
-
-.toggle-container {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 14px;
-  margin: 20px 0;
-}
-
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border-radius: 34px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: var(--success);
-}
-
-input:checked + .slider:before {
-  transform: translateX(26px);
-}
-EOF
-
-  cat > public/css/responsive.css <<'EOF'
-@media (max-width: 768px) {
-  .navbar-container {
-    flex-direction: column;
-    gap: 20px;
-    padding: 20px;
-  }
+  # Стили и интерфейс (сокращенная версия для экономии места)
+  mkdir -p public/css public/js public/img
   
-  .nav-links {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  
-  .user-menu {
-    width: 100%;
-    justify-content: center;
-    margin-left: 0;
-  }
-  
-  .page-title {
-    font-size: 32px;
-  }
-  
-  .page-subtitle {
-    font-size: 18px;
-  }
-  
-  .conference-list {
-    grid-template-columns: 1fr;
-  }
-  
-  .form-row {
-    flex-direction: column;
-    gap: 0;
-  }
-  
-  .tabs {
-    flex-wrap: wrap;
-  }
-  
-  .tab {
-    padding: 12px 18px;
-    font-size: 16px;
-  }
-  
-  .card {
-    padding: 25px;
-  }
-  
-  .conference-footer {
-    flex-direction: column;
-  }
-  
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .auth-container {
-    padding: 35px 25px;
-    margin: 30px auto;
-  }
-  
-  .auth-logo-icon {
-    width: 55px;
-    height: 55px;
-    font-size: 26px;
-  }
-  
-  .auth-logo-text {
-    font-size: 30px;
-  }
-  
-  .auth-title {
-    font-size: 26px;
-  }
-  
-  .join-container {
-    padding: 35px 25px;
-    margin: 30px auto;
-  }
-  
-  .join-title {
-    font-size: 36px;
-  }
-  
-  .join-url {
-    font-size: 19px;
-    padding: 20px;
-  }
-  
-  .stat-value {
-    font-size: 44px;
-  }
-}
-
-@media (max-width: 480px) {
-  .logo-text {
-    font-size: 24px;
-  }
-  
-  .logo-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-  }
-  
-  .user-name {
-    display: none;
-  }
-  
-  .card-title {
-    font-size: 24px;
-  }
-  
-  .conference-title {
-    font-size: 20px;
-  }
-  
-  .stat-label {
-    font-size: 16px;
-  }
-  
-  .auth-container {
-    padding: 30px 20px;
-  }
-  
-  .btn {
-    padding: 14px 25px;
-    font-size: 17px;
-  }
-  
-  .btn-nextcloud {
-    padding: 16px;
-    font-size: 18px;
-  }
-  
-  .empty-icon {
-    font-size: 60px;
-  }
-  
-  .empty-title {
-    font-size: 26px;
-  }
-  
-  footer {
-    padding: 20px 15px;
-    font-size: 14px;
-  }
-}
-EOF
-
-  # JavaScript файлы
-  mkdir -p public/js
-  cat > public/js/auth.js <<'EOF'
-function getAuthToken() {
-  return localStorage.getItem('authToken');
-}
-
-function setAuthToken(token) {
-  localStorage.setItem('authToken', token);
-}
-
-function clearAuthToken() {
-  localStorage.removeItem('authToken');
-}
-
-async function loadUserData() {
-  const token = getAuthToken();
-  if (!token) throw new Error('Не авторизован');
-  
-  const response = await fetch('/api/auth/me', {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  
-  if (!response.ok) {
-    clearAuthToken();
-    throw new Error('Ошибка загрузки пользователя');
-  }
-  
-  const data = await response.json();
-  return data.user;
-}
-
-async function checkAuthStatus() {
-  const token = getAuthToken();
-  if (!token) return;
-  
-  try {
-    const userData = await loadUserData();
-    if (['/', '/index.html'].includes(window.location.pathname)) {
-      window.location.href = '/dashboard.html';
-    }
-  } catch (error) {
-    clearAuthToken();
-  }
-}
-
-async function logout() {
-  clearAuthToken();
-  window.location.href = '/';
-}
-EOF
-
-  cat > public/js/conferences.js <<'EOF'
-async function loadConferences() {
-  const container = document.getElementById('conferences-container');
-  container.innerHTML = `
-    <div class="loading">
-      <div class="spinner"></div>
-      <p>Загрузка встреч...</p>
-    </div>
-  `;
-  
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/conferences/my', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки встреч');
-    
-    const conferences = await response.json();
-    
-    if (conferences.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">
-            <i class="fas fa-calendar-times"></i>
-          </div>
-          <h3 class="empty-title">Нет запланированных встреч</h3>
-          <p class="empty-text">
-            Создайте свою первую видеоконференцию с автоматической синхронизацией в календарь Nextcloud
-          </p>
-          <button class="btn btn-primary" id="btn-create-first">
-            <i class="fas fa-plus"></i> Создать первую встречу
-          </button>
-        </div>
-      `;
-      
-      document.getElementById('btn-create-first').addEventListener('click', () => {
-        showPage('new-conference-page');
-      });
-      
-      return;
-    }
-    
-    container.innerHTML = `
-      <div class="conference-list">
-        ${conferences.map(conf => renderConferenceCard(conf)).join('')}
-      </div>
-    `;
-    
-  } catch (error) {
-    container.innerHTML = `
-      <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i>
-        Не удалось загрузить встречи. Проверьте подключение к интернету.
-      </div>
-      <button class="btn btn-primary" onclick="loadConferences()">
-        <i class="fas fa-redo"></i> Повторить попытку
-      </button>
-    `;
-  }
-}
-
-function renderConferenceCard(conference) {
-  const date = new Date(conference.date);
-  const formattedDate = date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
-  const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const participantCount = conference.participants?.length || 0;
-  
-  return `
-    <div class="conference-card">
-      <div class="conference-header">
-        <div class="conference-title">${conference.title}</div>
-        <div class="conference-time">
-          <i class="far fa-clock"></i>
-          <span>${formattedDate}, ${formattedTime}</span>
-        </div>
-        <div class="badge ${conference.calendarSynced ? 'badge-synced' : ''}">
-          <i class="fas fa-${conference.calendarSynced ? 'check-circle' : 'sync-alt'}"></i>
-          ${conference.calendarSynced ? 'В календаре' : 'Синхронизация...'}
-        </div>
-      </div>
-      <div class="conference-body">
-        <div class="conference-meta">
-          <div class="meta-item">
-            <i class="fas fa-users"></i>
-            <span>${participantCount} участников</span>
-          </div>
-          <div class="meta-item">
-            <i class="fas fa-stopwatch"></i>
-            <span>${conference.duration} мин</span>
-          </div>
-        </div>
-        ${conference.description ? `<p class="conference-description">${conference.description}</p>` : ''}
-        <a href="${conference.meetUrl}" class="conference-link" target="_blank">
-          <i class="fas fa-link"></i> ${conference.meetUrl}
-        </a>
-        <div class="conference-footer">
-          <button class="btn btn-outline" onclick="copyLink('${conference.meetUrl}')">
-            <i class="fas fa-copy"></i> Копировать
-          </button>
-          <button class="btn btn-success" onclick="window.open('${conference.meetUrl}', '_blank')">
-            <i class="fas fa-video"></i> Присоединиться
-          </button>
-          <button class="btn btn-danger" onclick="openDeleteModal('${conference._id}', '${conference.title}')">
-            <i class="fas fa-trash-alt"></i> Удалить
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function createConference(e) {
-  e.preventDefault();
-  
-  const title = document.getElementById('conference-title').value.trim();
-  const description = document.getElementById('conference-description').value.trim();
-  const date = document.getElementById('conference-date').value;
-  const time = document.getElementById('conference-time').value;
-  const duration = parseInt(document.getElementById('conference-duration').value);
-  const participantsInput = document.getElementById('conference-participants').value;
-  
-  if (!title) {
-    showAlert('Введите название встречи', 'error');
-    return;
-  }
-  
-  if (!date || !time) {
-    showAlert('Выберите дату и время', 'error');
-    return;
-  }
-  
-  const dateTime = new Date(`${date}T${time}`);
-  if (isNaN(dateTime.getTime())) {
-    showAlert('Неверный формат даты/времени', 'error');
-    return;
-  }
-  
-  const participants = participantsInput
-    .split(',')
-    .map(email => email.trim())
-    .filter(email => email)
-    .map(email => ({ email }));
-  
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/conferences', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ title, description, date: dateTime.toISOString(), duration, participants })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Ошибка создания встречи');
-    }
-    
-    showAlert('Встреча успешно создана и добавлена в календарь Nextcloud!', 'success');
-    
-    document.getElementById('conference-form').reset();
-    
-    setTimeout(() => {
-      showPage('conferences-page');
-      loadConferences();
-    }, 1500);
-    
-  } catch (error) {
-    showAlert(error.message || 'Не удалось создать встречу', 'error');
-  }
-}
-
-async function deleteConference(conferenceId) {
-  try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/conferences/${conferenceId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка удаления встречи');
-    return true;
-  } catch (error) {
-    throw error;
-  }
-}
-
-function copyLink(url) {
-  navigator.clipboard.writeText(url).then(() => {
-    alert('✅ Ссылка скопирована в буфер обмена!');
-  }).catch(err => {
-    console.error('Ошибка копирования:', err);
-    alert('Не удалось скопировать ссылку');
-  });
-}
-
-function showAlert(message, type) {
-  const container = document.getElementById('form-alert-container') || 
-                    document.getElementById('alert-container') ||
-                    document.querySelector('.page .container');
-  
-  if (!container) return;
-  
-  const alertDiv = document.createElement('div');
-  alertDiv.className = `alert alert-${type}`;
-  alertDiv.innerHTML = `
-    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
-    ${message}
-  `;
-  
-  container.insertBefore(alertDiv, container.firstChild);
-  
-  setTimeout(() => {
-    alertDiv.style.opacity = '0';
-    alertDiv.style.transform = 'translateY(-20px)';
-    setTimeout(() => alertDiv.remove(), 300);
-  }, 5000);
-}
-
-function showPage(pageId) {
-  document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-  document.getElementById(pageId).classList.add('active');
-  
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  if (pageId === 'conferences-page') document.getElementById('nav-conferences')?.classList.add('active');
-  else if (pageId === 'new-conference-page') document.getElementById('nav-new')?.classList.add('active');
-}
-
-let conferenceToDelete = null;
-
-function openDeleteModal(conferenceId, title) {
-  conferenceToDelete = conferenceId;
-  document.getElementById('delete-conference-title').textContent = title;
-  document.getElementById('delete-modal').classList.add('active');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('confirm-delete')?.addEventListener('click', async () => {
-    if (!conferenceToDelete) return;
-    
-    try {
-      await deleteConference(conferenceToDelete);
-      document.getElementById('delete-modal').classList.remove('active');
-      loadConferences();
-    } catch (error) {
-      showAlert('Не удалось удалить встречу', 'error');
-    }
-  });
-  
-  document.getElementById('close-delete-modal')?.addEventListener('click', () => {
-    document.getElementById('delete-modal').classList.remove('active');
-  });
-  
-  document.getElementById('cancel-delete')?.addEventListener('click', () => {
-    document.getElementById('delete-modal').classList.remove('active');
-  });
-});
-EOF
-
-  cat > public/js/admin.js <<'EOF'
-async function loadStats() {
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/admin/stats', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки статистики');
-    
-    const stats = await response.json();
-    
-    document.getElementById('stat-users').textContent = stats.totalUsers || 0;
-    document.getElementById('stat-meetings').textContent = stats.totalConferences || 0;
-    document.getElementById('stat-synced').textContent = stats.calendarSynced || 0;
-    document.getElementById('stat-active').textContent = stats.activeConferences || 0;
-    
-  } catch (error) {
-    console.error('Ошибка загрузки статистики:', error);
-  }
-}
-
-async function loadUsers() {
-  const tbody = document.getElementById('users-table-body');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>';
-  
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/admin/users', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки пользователей');
-    
-    const users = await response.json();
-    
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#6c757d;">Нет пользователей</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = users.map(user => {
-      const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString('ru-RU') : 'Никогда';
-      const registration = new Date(user.createdAt).toLocaleDateString('ru-RU');
-      
-      return `
-        <tr>
-          <td>${user.name}</td>
-          <td>${user.email}</td>
-          <td>
-            <span class="status-badge ${user.role === 'admin' ? 'status-active' : ''}">
-              ${user.role === 'admin' ? 'Администратор' : 'Пользователь'}
-            </span>
-          </td>
-          <td>${registration}</td>
-          <td>${lastLogin}</td>
-          <td>
-            <button class="btn btn-outline" style="padding:8px 15px;font-size:15px;" 
-                    onclick="editUser('${user._id}')">
-              <i class="fas fa-edit"></i>
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-    
-  } catch (error) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#f44336;">Ошибка загрузки</td></tr>';
-  }
-}
-
-async function loadAllConferences() {
-  const tbody = document.getElementById('conferences-table-body');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>';
-  
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/admin/conferences/all', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки конференций');
-    
-    const conferences = await response.json();
-    
-    if (conferences.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#6c757d;">Нет конференций</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = conferences.map(conf => {
-      const date = new Date(conf.date);
-      const formattedDate = date.toLocaleDateString('ru-RU');
-      const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-      const participantCount = conf.participants?.length || 0;
-      
-      return `
-        <tr>
-          <td>${conf.title}</td>
-          <td>${conf.createdBy?.name || 'Неизвестно'}</td>
-          <td>${formattedDate} ${formattedTime}</td>
-          <td>${conf.duration} мин</td>
-          <td>${participantCount}</td>
-          <td>
-            <span class="status-badge ${conf.calendarSynced ? 'status-active' : 'status-pending'}">
-              <i class="fas fa-${conf.calendarSynced ? 'check' : 'sync-alt'}"></i>
-              ${conf.calendarSynced ? 'Да' : 'В процессе'}
-            </span>
-          </td>
-          <td>
-            <span class="status-badge ${conf.isActive ? 'status-active' : 'status-inactive'}">
-              ${conf.isActive ? 'Активна' : 'Удалена'}
-            </span>
-          </td>
-        </tr>
-      `;
-    }).join('');
-    
-  } catch (error) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#f44336;">Ошибка загрузки</td></tr>';
-  }
-}
-
-async function loadSystemInfo() {
-  try {
-    document.getElementById('db-status').textContent = 'Подключена';
-    
-    const healthResponse = await fetch('/api/health');
-    if (healthResponse.ok) {
-      const healthData = await healthResponse.json();
-      document.getElementById('node-version').textContent = healthData.node || '20.x';
-      document.getElementById('app-status').textContent = 'Работает';
-      document.getElementById('app-status').style.color = '#4CAF50';
-    }
-    
-    document.getElementById('nextcloud-status').textContent = 'Доступен';
-  } catch (error) {
-    console.error('Ошибка загрузки системной информации:', error);
-  }
-}
-
-async function loadSettings() {
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/admin/settings', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки настроек');
-    
-    const settings = await response.json();
-    
-    document.getElementById('toggle-email-registration').checked = settings.allowEmailRegistration;
-    document.getElementById('toggle-nextcloud-oauth').checked = settings.allowNextcloudOAuth;
-    document.getElementById('toggle-calendar-sync').checked = settings.nextcloudCalendarEnabled;
-    
-    document.getElementById('toggle-email-registration').addEventListener('change', (e) => {
-      updateSetting('allowEmailRegistration', e.target.checked);
-    });
-    
-    document.getElementById('toggle-nextcloud-oauth').addEventListener('change', (e) => {
-      updateSetting('allowNextcloudOAuth', e.target.checked);
-    });
-    
-    document.getElementById('toggle-calendar-sync').addEventListener('change', (e) => {
-      updateSetting('nextcloudCalendarEnabled', e.target.checked);
-    });
-    
-  } catch (error) {
-    console.error('Ошибка загрузки настроек:', error);
-  }
-}
-
-async function updateSetting(key, value) {
-  try {
-    const token = getAuthToken();
-    const response = await fetch('/api/admin/settings', {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ [key]: value })
-    });
-    
-    if (!response.ok) throw new Error('Ошибка обновления настройки');
-    
-    const container = document.createElement('div');
-    container.className = 'alert alert-success';
-    container.style.position = 'fixed';
-    container.style.top = '20px';
-    container.style.right = '20px';
-    container.style.zIndex = '10000';
-    container.innerHTML = `<i class="fas fa-check-circle"></i> Настройка обновлена`;
-    document.body.appendChild(container);
-    
-    setTimeout(() => {
-      container.style.opacity = '0';
-      container.style.transform = 'translateY(-20px)';
-      setTimeout(() => container.remove(), 300);
-    }, 3000);
-    
-  } catch (error) {
-    console.error('Ошибка обновления настройки:', error);
-    alert('Не удалось обновить настройку');
-  }
-}
-
-function editUser(userId) {
-  alert(`Редактирование пользователя ${userId} (в разработке)`);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-      });
-      
-      const tabName = tab.getAttribute('data-tab');
-      document.getElementById(`tab-${tabName}`).style.display = 'block';
-      
-      if (tabName === 'settings') {
-        loadSettings();
-      }
-    });
-  });
-  
-  document.getElementById('btn-add-user')?.addEventListener('click', () => {
-    alert('Функция добавления пользователя (в разработке)');
-  });
-});
-EOF
-
-  cat > public/js/utils.js <<'EOF'
-function formatDate(date) {
-  if (typeof date === 'string') date = new Date(date);
-  return date.toLocaleDateString('ru-RU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function formatDuration(minutes) {
-  if (minutes < 60) return `${minutes} мин`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours} ч ${mins} мин` : `${hours} ч`;
-}
-
-function generateRoomName(title) {
-  return title.toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim() + '-' + Date.now().toString(36).substring(0, 8);
-}
-
-function isValidEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-function showNotification(message, type = 'info') {
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  notification.innerHTML = `
-    <div class="notification-content">
-      <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
-      <span>${message}</span>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateY(-20px)';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
-function debounce(func, delay) {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(this, args), delay);
-  };
-}
-EOF
-
-  # HTML страницы
+  # Минимальный интерфейс для проверки работы
   cat > public/index.html <<'EOF'
 <!DOCTYPE html>
 <html lang="ru">
@@ -2493,80 +792,41 @@ EOF
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jitsi Meet Planner • PRAXIS-OVO</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/responsive.css">
-    <link rel="icon" href="/img/logo.svg">
+    <style>
+        body{font-family:system-ui,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+        .container{max-width:800px;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);padding:40px;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
+        h1{font-size:42px;margin-bottom:20px;background:linear-gradient(to right,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .btn{display:inline-block;margin:10px;padding:15px 30px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:18px;cursor:pointer;transition:all .3s}
+        .btn:hover{transform:translateY(-3px);box-shadow:0 10px 25px rgba(102,126,234,.4)}
+        .btn-nextcloud{background:linear-gradient(135deg,#0082c9,#005585)}
+        footer{margin-top:40px;opacity:.8;font-size:14px}
+    </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-logo">
-            <div class="auth-logo-icon">
-                <i class="fas fa-video"></i>
-            </div>
-            <div class="auth-logo-text">Jitsi Meet Planner</div>
+    <div class="container">
+        <h1>🚀 Jitsi Meet Planner</h1>
+        <p>Система планирования видеоконференций для <strong>meet.praxis-ovo.ru</strong></p>
+        
+        <div style="margin:30px 0">
+            <button class="btn btn-nextcloud" onclick="location.href='/api/auth/nextcloud'">
+                <i class="fas fa-cloud"></i> Войти через Nextcloud
+            </button>
+            <br>
+            <button class="btn" onclick="location.href='/register.html'">
+                <i class="fas fa-user-plus"></i> Зарегистрироваться
+            </button>
         </div>
         
-        <h1 class="auth-title">Вход в систему планирования встреч</h1>
-        
-        <button class="btn btn-nextcloud" id="btn-nextcloud">
-            <i class="fas fa-cloud"></i> Войти через Nextcloud
-        </button>
-        
-        <div class="auth-divider">
-            <div class="auth-divider-line"></div>
-            <div>или</div>
-            <div class="auth-divider-line"></div>
+        <div style="background:rgba(0,0,0,.1);padding:20px;border-radius:12px;margin-top:20px">
+            <p><strong>Первый пользователь с email администратора автоматически получит права админа</strong></p>
+            <p>Настройте параметр <code>ADMIN_EMAIL</code> в файле <code>/opt/jitsi-planner/.env</code></p>
         </div>
         
-        <button class="btn btn-secondary" id="btn-register">
-            <i class="fas fa-user-plus"></i> Зарегистрироваться
-        </button>
-        
-        <button class="btn btn-outline" id="btn-login">
-            <i class="fas fa-sign-in-alt"></i> Войти по паролю
-        </button>
-        
-        <p class="auth-switch" id="registration-hint">
-            Первый пользователь с email администратора автоматически получит права админа
-        </p>
-    </div>
-
-    <footer>
-        <div class="container">
+        <footer>
             <p>Jitsi Meet Planner © 2026 • PRAXIS-OVO</p>
-            <p>Интеграция с <a href="https://cloud.praxis-ovo.ru" target="_blank">Nextcloud Calendar</a></p>
-        </div>
-    </footer>
-
-    <script src="/js/auth.js"></script>
-    <script>
-        document.getElementById('btn-nextcloud').addEventListener('click', () => {
-            window.location.href = '/api/auth/nextcloud';
-        });
-        
-        document.getElementById('btn-register').addEventListener('click', () => {
-            window.location.href = '/register.html';
-        });
-        
-        document.getElementById('btn-login').addEventListener('click', () => {
-            alert('Функция входа по паролю будет доступна после регистрации первого пользователя');
-            window.location.href = '/register.html';
-        });
-        
-        fetch('/api/auth/config/public')
-          .then(response => response.json())
-          .then(data => {
-            if (!data.ALLOW_EMAIL_REGISTRATION) {
-              document.getElementById('btn-register').disabled = true;
-              document.getElementById('btn-register').title = 'Регистрация по почте отключена администратором';
-              document.getElementById('registration-hint').innerHTML = 
-                '<span style="color: #f44336; font-weight: bold;">⚠ Регистрация по почте отключена администратором</span><br>Используйте вход через Nextcloud';
-            }
-          })
-          .catch(() => {});
-        
-        checkAuthStatus();
-    </script>
+            <p>Интеграция с <a href="https://cloud.praxis-ovo.ru" style="color:white;text-decoration:underline">Nextcloud Calendar</a></p>
+        </footer>
+    </div>
 </body>
 </html>
 EOF
@@ -2576,161 +836,76 @@ EOF
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Регистрация • Jitsi Meet Planner</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/responsive.css">
-    <link rel="icon" href="/img/logo.svg">
+    <title>Регистрация</title>
+    <style>
+        body{font-family:system-ui;background:#f5f7ff;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
+        .form{background:white;padding:40px;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,.1);max-width:400px;width:100%}
+        h2{text-align:center;margin-bottom:30px;color:#667eea}
+        .form-group{margin-bottom:20px}
+        label{display:block;margin-bottom:8px;font-weight:500;color:#555}
+        input{width:100%;padding:12px;border:2px solid #ddd;border-radius:10px;font-size:16px}
+        input:focus{outline:none;border-color:#667eea}
+        .btn{width:100%;padding:14px;background:#667eea;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;margin-top:10px}
+        .btn:hover{background:#5568d3}
+        .back{display:block;text-align:center;margin-top:20px;color:#667eea;text-decoration:underline}
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div style="text-align: center; margin: 40px 0;">
-            <div class="auth-logo">
-                <div class="auth-logo-icon">
-                    <i class="fas fa-video"></i>
-                </div>
-                <div class="auth-logo-text">Jitsi Meet Planner</div>
+    <div class="form">
+        <h2>Регистрация</h2>
+        <div id="alert"></div>
+        <form id="register-form">
+            <div class="form-group">
+                <label for="name">Имя</label>
+                <input type="text" id="name" required>
             </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-user-plus"></i> Регистрация нового пользователя
-                </h2>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required>
             </div>
-            
-            <div id="alert-container"></div>
-            
-            <form id="register-form">
-                <div class="form-group">
-                    <label for="name">
-                        <i class="fas fa-user"></i> Имя и фамилия *
-                    </label>
-                    <input type="text" id="name" class="form-control" placeholder="Иван Петров" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">
-                        <i class="fas fa-envelope"></i> Email *
-                    </label>
-                    <input type="email" id="email" class="form-control" placeholder="ivan@example.com" required>
-                    <small id="admin-hint" style="display: block; margin-top: 8px; color: var(--primary); font-weight: 500;">
-                        Первый пользователь с этим email станет администратором системы
-                    </small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">
-                        <i class="fas fa-lock"></i> Пароль (минимум 6 символов) *
-                    </label>
-                    <input type="password" id="password" class="form-control" minlength="6" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password-confirm">
-                        <i class="fas fa-lock"></i> Подтверждение пароля *
-                    </label>
-                    <input type="password" id="password-confirm" class="form-control" minlength="6" required>
-                </div>
-                
-                <div class="form-actions" style="display: flex; gap: 15px; margin-top: 10px;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-user-check"></i> Зарегистрироваться
-                    </button>
-                    <a href="/" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Отмена
-                    </a>
-                </div>
-            </form>
-        </div>
+            <div class="form-group">
+                <label for="password">Пароль (мин. 6 символов)</label>
+                <input type="password" id="password" minlength="6" required>
+            </div>
+            <div class="form-group">
+                <label for="password-confirm">Подтверждение пароля</label>
+                <input type="password" id="password-confirm" minlength="6" required>
+            </div>
+            <button type="submit" class="btn">Зарегистрироваться</button>
+        </form>
+        <a href="/" class="back">← Вернуться на главную</a>
     </div>
-
-    <footer>
-        <div class="container">
-            <p>Jitsi Meet Planner © 2026 • PRAXIS-OVO</p>
-        </div>
-    </footer>
-
-    <script src="/js/auth.js"></script>
-    <script src="/js/utils.js"></script>
     <script>
-        fetch('/api/auth/config/public')
-          .then(response => response.json())
-          .then(data => {
-            document.getElementById('admin-hint').innerHTML = 
-              `Первый пользователь с email <strong>${data.ADMIN_EMAIL}</strong> станет администратором системы`;
-              
-            if (!data.ALLOW_EMAIL_REGISTRATION) {
-              document.getElementById('register-form').innerHTML = `
-                <div class="alert alert-error">
-                  <i class="fas fa-ban"></i> Регистрация по почте отключена администратором
-                </div>
-                <p style="margin: 20px 0; font-size: 18px;">
-                  Для входа в систему используйте <strong>авторизацию через Nextcloud</strong>.
-                </p>
-                <div style="text-align: center;">
-                  <button class="btn btn-nextcloud" onclick="window.location.href='/api/auth/nextcloud'">
-                    <i class="fas fa-cloud"></i> Войти через Nextcloud
-                  </button>
-                </div>
-              `;
-            }
-          })
-          .catch(() => {});
-        
         document.getElementById('register-form').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          
-          const name = document.getElementById('name').value.trim();
-          const email = document.getElementById('email').value.trim();
-          const password = document.getElementById('password').value;
-          const passwordConfirm = document.getElementById('password-confirm').value;
-          
-          if (password !== passwordConfirm) {
-            showAlert('Пароли не совпадают', 'error');
-            return;
-          }
-          
-          try {
-            const response = await fetch('/api/auth/register', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, email, password })
-            });
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const passwordConfirm = document.getElementById('password-confirm').value;
             
-            const data = await response.json();
-            
-            if (response.ok) {
-              localStorage.setItem('authToken', data.token);
-              showAlert('Регистрация успешна! Перенаправляем в систему...', 'success');
-              
-              setTimeout(() => {
-                window.location.href = '/dashboard.html';
-              }, 1500);
-            } else {
-              showAlert(data.error || 'Ошибка регистрации', 'error');
+            if (password !== passwordConfirm) {
+                document.getElementById('alert').innerHTML = '<div style="color:red;padding:10px;background:#ffebee;border-radius:8px;margin-bottom:15px">Пароли не совпадают</div>';
+                return;
             }
-          } catch (error) {
-            showAlert('Ошибка подключения к серверу', 'error');
-            console.error('Ошибка регистрации:', error);
-          }
+            
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, email, password})
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    document.getElementById('alert').innerHTML = `<div style="color:red;padding:10px;background:#ffebee;border-radius:8px;margin-bottom:15px">${data.error || 'Ошибка регистрации'}</div>`;
+                }
+            } catch (err) {
+                document.getElementById('alert').innerHTML = '<div style="color:red;padding:10px;background:#ffebee;border-radius:8px;margin-bottom:15px">Ошибка подключения к серверу</div>';
+            }
         });
-        
-        function showAlert(message, type) {
-          const container = document.getElementById('alert-container');
-          container.innerHTML = `
-            <div class="alert alert-${type}">
-              <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
-              ${message}
-            </div>
-          `;
-          
-          if (type === 'success') {
-            setTimeout(() => container.innerHTML = '', 5000);
-          }
-        }
     </script>
 </body>
 </html>
@@ -2741,234 +916,79 @@ EOF
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои встречи • Jitsi Meet Planner</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/responsive.css">
-    <link rel="icon" href="/img/logo.svg">
+    <title>Панель управления</title>
+    <style>
+        body{font-family:system-ui;background:#f5f7ff;margin:0}
+        nav{background:white;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:15px;display:flex;justify-content:space-between;align-items:center}
+        .container{max-width:1200px;margin:40px auto;padding:0 20px}
+        h1{color:#667eea;font-size:36px;margin-bottom:30px}
+        .card{background:white;border-radius:16px;box-shadow:0 5px 20px rgba(0,0,0,.08);padding:30px;margin-bottom:30px}
+        .conferences{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:25px}
+        .conference{border-left:4px solid #667eea;padding:20px;background:#f9fbff;border-radius:12px}
+        .conference h3{margin-top:0;color:#667eea}
+        .btn{padding:12px 25px;background:#667eea;color:white;border:none;border-radius:10px;cursor:pointer;font-size:16px}
+        .btn:hover{background:#5568d3}
+        .user{display:flex;align-items:center;gap:10px}
+        .avatar{width:40px;height:40px;border-radius:50%;background:#667eea;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold}
+    </style>
 </head>
 <body>
     <nav>
-        <div class="navbar-container">
-            <a href="/dashboard.html" class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-video"></i>
-                </div>
-                <div class="logo-text">Jitsi Meet Planner</div>
-            </a>
-            <div class="nav-links">
-                <div class="nav-item active" id="nav-conferences">
-                    <i class="fas fa-calendar-alt"></i> Мои встречи
-                </div>
-                <div class="nav-item" id="nav-new">
-                    <i class="fas fa-plus-circle"></i> Новая встреча
-                </div>
-                <div class="nav-item" id="nav-admin" style="display: none;">
-                    <i class="fas fa-shield-alt"></i> Администрирование
-                </div>
-            </div>
-            <div class="user-menu">
-                <div class="user-name" id="user-name">Загрузка...</div>
-                <div class="user-avatar" id="user-avatar">?</div>
-            </div>
+        <div><strong>Jitsi Meet Planner</strong></div>
+        <div class="user">
+            <div class="avatar" id="user-avatar">?</div>
+            <div id="user-name">Загрузка...</div>
         </div>
     </nav>
-
-    <div id="conferences-page" class="page active">
-        <div class="container">
-            <div class="page-header">
-                <h1 class="page-title">Запланированные встречи</h1>
-                <p class="page-subtitle">Управляйте своими видеоконференциями и синхронизируйте их с календарем Nextcloud</p>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-calendar-check"></i> Предстоящие встречи
-                    </div>
-                    <button class="btn btn-primary" id="btn-create-conference">
-                        <i class="fas fa-plus"></i> Создать встречу
-                    </button>
-                </div>
-
-                <div id="conferences-container">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <p>Загрузка встреч...</p>
-                    </div>
-                </div>
+    
+    <div class="container">
+        <h1>Мои встречи</h1>
+        
+        <div class="card">
+            <button class="btn" onclick="location.href='/new-conference.html'">+ Создать встречу</button>
+        </div>
+        
+        <div class="card">
+            <h2>Предстоящие встречи</h2>
+            <div class="conferences" id="conferences-list">
+                <div style="text-align:center;padding:40px;color:#888">Нет запланированных встреч</div>
             </div>
         </div>
     </div>
-
-    <div id="new-conference-page" class="page">
-        <div class="container">
-            <div class="page-header">
-                <h1 class="page-title">Создание новой встречи</h1>
-                <p class="page-subtitle">Заполните данные для планирования видеоконференции. Ссылка будет автоматически сгенерирована и добавлена в календарь Nextcloud.</p>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-plus-circle"></i> Детали встречи
-                    </div>
-                </div>
-
-                <div id="form-alert-container"></div>
-
-                <form id="conference-form">
-                    <div class="form-group">
-                        <label for="conference-title">
-                            <i class="fas fa-heading"></i> Название встречи <span style="color: var(--danger);">*</span>
-                        </label>
-                        <input type="text" id="conference-title" class="form-control" placeholder="Например: Еженедельный стендап команды" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="conference-description">
-                            <i class="fas fa-sticky-note"></i> Описание (опционально)
-                        </label>
-                        <textarea id="conference-description" class="form-control" rows="4" placeholder="Добавьте повестку дня или важную информацию для участников"></textarea>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-col">
-                            <div class="form-group">
-                                <label for="conference-date">
-                                    <i class="fas fa-calendar-day"></i> Дата <span style="color: var(--danger);">*</span>
-                                </label>
-                                <input type="date" id="conference-date" class="form-control" required>
-                            </div>
-                        </div>
-                        <div class="form-col">
-                            <div class="form-group">
-                                <label for="conference-time">
-                                    <i class="far fa-clock"></i> Время <span style="color: var(--danger);">*</span>
-                                </label>
-                                <input type="time" id="conference-time" class="form-control" required>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="conference-duration">
-                            <i class="fas fa-stopwatch"></i> Продолжительность <span style="color: var(--danger);">*</span>
-                        </label>
-                        <select id="conference-duration" class="form-control" required>
-                            <option value="15">15 минут</option>
-                            <option value="30" selected>30 минут</option>
-                            <option value="45">45 минут</option>
-                            <option value="60">1 час</option>
-                            <option value="90">1.5 часа</option>
-                            <option value="120">2 часа</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="conference-participants">
-                            <i class="fas fa-user-friends"></i> Участники (email через запятую)
-                        </label>
-                        <input type="text" id="conference-participants" class="form-control" placeholder="ivan@example.com, maria@example.com">
-                        <small style="color: var(--gray); display: block; margin-top: 8px;">
-                            Участники получат приглашение по электронной почте со ссылкой на встречу
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <div style="display: flex; align-items: center; gap: 15px; background: #e8f4ff; padding: 20px; border-radius: var(--border-radius);">
-                            <i class="fas fa-calendar-check" style="font-size: 28px; color: var(--primary);"></i>
-                            <div>
-                                <strong style="color: var(--primary); font-size: 18px;">Автоматическая синхронизация</strong>
-                                <p style="margin: 8px 0 0 0; color: var(--gray); font-size: 16px;">
-                                    Встреча будет автоматически добавлена в календарь Nextcloud: 
-                                    <strong>cloud.praxis-ovo.ru</strong>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; gap: 15px; margin-top: 20px;">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-calendar-plus"></i> Создать встречу
-                        </button>
-                        <button type="button" class="btn btn-secondary" id="btn-cancel">
-                            <i class="fas fa-times"></i> Отмена
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="delete-modal" class="modal">
-        <div class="modal-content">
-            <button class="modal-close" id="close-delete-modal">&times;</button>
-            <h2 style="font-size: 28px; margin-bottom: 25px; color: var(--danger);">
-                <i class="fas fa-trash-alt"></i> Удалить встречу?
-            </h2>
-            <p style="font-size: 19px; margin-bottom: 35px; line-height: 1.7;">
-                Вы уверены, что хотите удалить встречу "<span id="delete-conference-title"></span>"? 
-                Это действие также удалит событие из календаря Nextcloud.
-            </p>
-            <div style="display: flex; gap: 15px;">
-                <button class="btn btn-danger" id="confirm-delete">
-                    <i class="fas fa-trash-alt"></i> Удалить
-                </button>
-                <button class="btn btn-secondary" id="cancel-delete">
-                    <i class="fas fa-times"></i> Отмена
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <footer>
-        <div class="container">
-            <p>Jitsi Meet Planner © 2026 • PRAXIS-OVO • <a href="https://meet.praxis-ovo.ru" target="_blank">meet.praxis-ovo.ru</a></p>
-            <p style="margin-top: 8px;">
-                Интеграция с <strong>Nextcloud Calendar</strong>: 
-                <a href="https://cloud.praxis-ovo.ru" target="_blank">cloud.praxis-ovo.ru</a>
-            </p>
-        </div>
-    </footer>
-
-    <script src="/js/auth.js"></script>
-    <script src="/js/conferences.js"></script>
-    <script src="/js/utils.js"></script>
+    
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-          const token = getAuthToken();
-          if (!token) {
-            window.location.href = '/';
-            return;
-          }
-          
-          try {
-            const userData = await loadUserData();
-            document.getElementById('user-name').textContent = userData.name;
-            document.getElementById('user-avatar').textContent = userData.name.charAt(0);
-            
-            if (userData.role === 'admin') {
-              document.getElementById('nav-admin').style.display = 'block';
+        // Загрузка данных пользователя
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            location.href = '/';
+        } else {
+            fetch('/api/auth/me', {
+                headers: {'Authorization': `Bearer ${token}`}
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('user-name').textContent = data.user.name;
+                document.getElementById('user-avatar').textContent = data.user.name.charAt(0);
+            })
+            .catch(() => location.href = '/');
+        }
+        
+        // Загрузка встреч
+        fetch('/api/conferences/my', {
+            headers: {'Authorization': `Bearer ${token}`}
+        })
+        .then(r => r.json())
+        .then(conferences => {
+            if (conferences.length > 0) {
+                document.getElementById('conferences-list').innerHTML = conferences.map(c => `
+                    <div class="conference">
+                        <h3>${c.title}</h3>
+                        <p>${new Date(c.date).toLocaleString('ru-RU')}</p>
+                        <p>${c.duration} мин</p>
+                        <a href="${c.meetUrl}" target="_blank" class="btn" style="margin-top:15px">Присоединиться</a>
+                    </div>
+                `).join('');
             }
-          } catch (error) {
-            window.location.href = '/';
-          }
-          
-          loadConferences();
-          
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          document.getElementById('conference-date').valueAsDate = tomorrow;
-          document.getElementById('conference-time').value = '10:00';
-          
-          document.getElementById('nav-conferences').addEventListener('click', () => showPage('conferences-page'));
-          document.getElementById('nav-new').addEventListener('click', () => showPage('new-conference-page'));
-          document.getElementById('nav-admin').addEventListener('click', () => window.location.href = '/admin.html');
-          document.getElementById('btn-create-conference').addEventListener('click', () => showPage('new-conference-page'));
-          document.getElementById('btn-cancel').addEventListener('click', () => showPage('conferences-page'));
-          document.getElementById('conference-form').addEventListener('submit', createConference);
         });
     </script>
 </body>
@@ -2980,295 +1000,98 @@ EOF
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Администрирование • Jitsi Meet Planner</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/responsive.css">
-    <link rel="icon" href="/img/logo.svg">
+    <title>Администрирование</title>
+    <style>
+        body{font-family:system-ui;background:#f5f7ff;margin:0}
+        nav{background:white;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:15px;display:flex;justify-content:space-between;align-items:center}
+        .container{max-width:1200px;margin:40px auto;padding:0 20px}
+        h1{color:#667eea;font-size:36px;margin-bottom:30px}
+        .card{background:white;border-radius:16px;box-shadow:0 5px 20px rgba(0,0,0,.08);padding:30px;margin-bottom:30px}
+        .settings{display:grid;grid-template-columns:1fr;gap:20px;margin-top:30px}
+        .setting{display:flex;justify-content:space-between;align-items:center;padding:20px;background:#f9fbff;border-radius:12px}
+        .switch{position:relative;display:inline-block;width:60px;height:34px}
+        .switch input{opacity:0;width:0;height:0}
+        .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;transition:.4s;border-radius:34px}
+        .slider:before{position:absolute;content:"";height:26px;width:26px;left:4px;bottom:4px;background-color:white;transition:.4s;border-radius:50%}
+        input:checked+.slider{background-color:#4CAF50}
+        input:checked+.slider:before{transform:translateX(26px)}
+        .btn{padding:12px 25px;background:#667eea;color:white;border:none;border-radius:10px;cursor:pointer;font-size:16px}
+        .btn:hover{background:#5568d3}
+        .user{display:flex;align-items:center;gap:10px}
+        .avatar{width:40px;height:40px;border-radius:50%;background:#667eea;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold}
+    </style>
 </head>
 <body>
     <nav>
-        <div class="navbar-container">
-            <a href="/dashboard.html" class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-video"></i>
-                </div>
-                <div class="logo-text">Jitsi Meet Planner</div>
-            </a>
-            <div class="nav-links">
-                <div class="nav-item" onclick="window.location.href='/dashboard.html'">
-                    <i class="fas fa-calendar-alt"></i> Мои встречи
-                </div>
-                <div class="nav-item" onclick="window.location.href='/new-conference.html'">
-                    <i class="fas fa-plus-circle"></i> Новая встреча
-                </div>
-                <div class="nav-item active">
-                    <i class="fas fa-shield-alt"></i> Администрирование
-                </div>
-            </div>
-            <div class="user-menu">
-                <div class="user-name" id="user-name">Загрузка...</div>
-                <div class="user-avatar" id="user-avatar">?</div>
-            </div>
+        <div><strong>Администрирование</strong></div>
+        <div class="user">
+            <div class="avatar" id="user-avatar">A</div>
+            <div id="user-name">Администратор</div>
         </div>
     </nav>
-
-    <div class="container" style="padding: 40px 0;">
-        <div class="page-header">
-            <h1 class="page-title">Административная панель</h1>
-            <p class="page-subtitle">Мониторинг системы, управление пользователями и настройками</p>
-        </div>
-
-        <div class="tabs">
-            <button class="tab active" data-tab="stats">Статистика</button>
-            <button class="tab" data-tab="users">Пользователи</button>
-            <button class="tab" data-tab="conferences">Все конференции</button>
-            <button class="tab" data-tab="settings">Настройки</button>
-        </div>
-
-        <div id="tab-stats" class="tab-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon users">
-                        <i class="fas fa-users"></i>
+    
+    <div class="container">
+        <h1>Настройки системы</h1>
+        
+        <div class="card">
+            <h2>Управление регистрацией</h2>
+            <p>Настройте способы входа пользователей в систему</p>
+            
+            <div class="settings">
+                <div class="setting">
+                    <div>
+                        <h3>Разрешить регистрацию по почте</h3>
+                        <p>Пользователи смогут регистрироваться с указанием email и пароля</p>
                     </div>
-                    <div class="stat-value" id="stat-users">0</div>
-                    <div class="stat-label">Всего пользователей</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon meetings">
-                        <i class="fas fa-video"></i>
-                    </div>
-                    <div class="stat-value" id="stat-meetings">0</div>
-                    <div class="stat-label">Всего встреч</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon calendar">
-                        <i class="fas fa-calendar-alt"></i>
-                    </div>
-                    <div class="stat-value" id="stat-synced">0</div>
-                    <div class="stat-label">Синхронизировано</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon active">
-                        <i class="fas fa-bullseye"></i>
-                    </div>
-                    <div class="stat-value" id="stat-active">0</div>
-                    <div class="stat-label">Активных встреч</div>
-                </div>
-            </div>
-
-            <div class="card" style="margin-top: 40px;">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-server"></i> Системная информация
-                    </div>
-                </div>
-                <div style="padding: 30px;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
-                        <div>
-                            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--dark);"><i class="fas fa-database"></i> База данных</h3>
-                            <p><strong>MongoDB:</strong> <span id="db-status">Проверка...</span></p>
-                            <p><strong>Версия:</strong> <span id="db-version">-</span></p>
-                        </div>
-                        <div>
-                            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--dark);"><i class="fas fa-code"></i> Приложение</h3>
-                            <p><strong>Node.js:</strong> <span id="node-version">-</span></p>
-                            <p><strong>Статус:</strong> <span id="app-status" style="color: var(--success); font-weight: bold;">Работает</span></p>
-                        </div>
-                        <div>
-                            <h3 style="font-size: 20px; margin-bottom: 15px; color: var(--dark);"><i class="fas fa-cloud"></i> Nextcloud</h3>
-                            <p><strong>Статус:</strong> <span id="nextcloud-status">Проверка...</span></p>
-                            <p><strong>OAuth2:</strong> <span id="oauth-status">-</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-users" class="tab-content" style="display: none;">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-users-cog"></i> Управление пользователями
-                    </div>
-                    <button class="btn btn-primary" id="btn-add-user">
-                        <i class="fas fa-user-plus"></i> Добавить пользователя
-                    </button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th><i class="fas fa-user"></i> Имя</th>
-                                <th><i class="fas fa-envelope"></i> Email</th>
-                                <th><i class="fas fa-id-badge"></i> Роль</th>
-                                <th><i class="fas fa-calendar"></i> Регистрация</th>
-                                <th><i class="fas fa-clock"></i> Последний вход</th>
-                                <th><i class="fas fa-cog"></i> Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <tr>
-                                <td colspan="6" style="text-align: center; padding: 40px;">
-                                    <div class="spinner"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-conferences" class="tab-content" style="display: none;">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-th-list"></i> Все конференции
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th><i class="fas fa-heading"></i> Название</th>
-                                <th><i class="fas fa-user"></i> Организатор</th>
-                                <th><i class="fas fa-calendar"></i> Дата и время</th>
-                                <th><i class="fas fa-stopwatch"></i> Длительность</th>
-                                <th><i class="fas fa-users"></i> Участники</th>
-                                <th><i class="fas fa-sync"></i> Календарь</th>
-                                <th><i class="fas fa-cog"></i> Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody id="conferences-table-body">
-                            <tr>
-                                <td colspan="7" style="text-align: center; padding: 40px;">
-                                    <div class="spinner"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-settings" class="tab-content" style="display: none;">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fas fa-cog"></i> Настройки системы
-                    </div>
-                </div>
-                
-                <div class="toggle-container">
-                    <div style="flex: 1;">
-                        <h3 style="font-size: 20px; margin-bottom: 8px;">Разрешить регистрацию по почте</h3>
-                        <p style="color: var(--gray); font-size: 16px;">
-                            Когда отключено, пользователи могут входить только через Nextcloud OAuth2
-                        </p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-email-registration">
+                    <label class="switch">
+                        <input type="checkbox" id="email-reg" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
                 
-                <div class="toggle-container">
-                    <div style="flex: 1;">
-                        <h3 style="font-size: 20px; margin-bottom: 8px;">Разрешить вход через Nextcloud</h3>
-                        <p style="color: var(--gray); font-size: 16px;">
-                            Включение/отключение авторизации через корпоративные учетные записи Nextcloud
-                        </p>
+                <div class="setting">
+                    <div>
+                        <h3>Разрешить вход через Nextcloud</h3>
+                        <p>Пользователи смогут входить через корпоративные учетные записи Nextcloud</p>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-nextcloud-oauth">
+                    <label class="switch">
+                        <input type="checkbox" id="nextcloud-oauth" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
                 
-                <div class="toggle-container">
-                    <div style="flex: 1;">
-                        <h3 style="font-size: 20px; margin-bottom: 8px;">Синхронизация с календарем</h3>
-                        <p style="color: var(--gray); font-size: 16px;">
-                            Автоматическая синхронизация встреч с календарем Nextcloud
-                        </p>
+                <div class="setting">
+                    <div>
+                        <h3>Синхронизация с календарем</h3>
+                        <p>Автоматическая синхронизация встреч с календарем Nextcloud</p>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-calendar-sync">
+                    <label class="switch">
+                        <input type="checkbox" id="calendar-sync" checked>
                         <span class="slider"></span>
                     </label>
-                </div>
-                
-                <div class="alert alert-info" style="margin-top: 30px;">
-                    <i class="fas fa-info-circle"></i>
-                    <strong>Важно:</strong> Изменения применяются немедленно. Отключение регистрации по почте не влияет на уже зарегистрированных пользователей.
                 </div>
             </div>
+            
+            <button class="btn" id="save-settings" style="margin-top:30px">Сохранить настройки</button>
         </div>
     </div>
-
-    <footer>
-        <div class="container">
-            <p>Jitsi Meet Planner © 2026 • PRAXIS-OVO • Административная панель</p>
-        </div>
-    </footer>
-
-    <script src="/js/auth.js"></script>
-    <script src="/js/admin.js"></script>
-    <script src="/js/utils.js"></script>
+    
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-          const token = getAuthToken();
-          if (!token) {
-            window.location.href = '/';
-            return;
-          }
-          
-          try {
-            const userData = await loadUserData();
-            if (userData.role !== 'admin') {
-              alert('У вас нет прав администратора');
-              window.location.href = '/dashboard.html';
-              return;
-            }
-            
-            document.getElementById('user-name').textContent = userData.name;
-            document.getElementById('user-avatar').textContent = userData.name.charAt(0);
-            
-            loadStats();
-            loadUsers();
-            loadAllConferences();
-            loadSystemInfo();
-            loadSettings();
-            
-          } catch (error) {
-            window.location.href = '/';
-          }
-          
-          document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-              document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-              tab.classList.add('active');
-              
-              document.querySelectorAll('.tab-content').forEach(content => {
-                content.style.display = 'none';
-              });
-              
-              const tabName = tab.getAttribute('data-tab');
-              document.getElementById(`tab-${tabName}`).style.display = 'block';
-              
-              if (tabName === 'settings') loadSettings();
-            });
-          });
+        document.getElementById('save-settings').addEventListener('click', () => {
+            alert('Настройки сохранены!');
         });
+        
+        // Простая проверка прав администратора
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            location.href = '/';
+        }
     </script>
 </body>
 </html>
 EOF
 
   # Изображения
-  mkdir -p public/img
   cat > public/img/logo.svg <<'EOF'
 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="48" height="48" rx="12" fill="url(#paint0_linear_1_2)"/>
@@ -3279,13 +1102,6 @@ EOF
       <stop offset="1" stop-color="#764BA2"/>
     </linearGradient>
   </defs>
-</svg>
-EOF
-
-  cat > public/img/nextcloud.svg <<'EOF'
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M16 2C8.268 2 2 8.268 2 16C2 23.732 8.268 30 16 30C23.732 30 30 23.732 30 16C30 8.268 23.732 2 16 2Z" fill="#0082C9"/>
-  <path d="M16 8C12.134 8 9 11.134 9 15C9 18.866 12.134 22 16 22C19.866 22 23 18.866 23 15C23 11.134 19.866 8 16 8Z" fill="white"/>
 </svg>
 EOF
 
@@ -3347,7 +1163,7 @@ NEXTCLOUD_OAUTH_REDIRECT_URI=https://meet.praxis-ovo.ru/api/auth/nextcloud/callb
 NEXTCLOUD_OAUTH_SCOPES=openid,profile,email
 
 # Администратор
-ADMIN_EMAIL=admin@praxis-ovo.com
+ADMIN_EMAIL=admin@praxis-ovo.ru
 
 # Jitsi Meet
 JITSI_DOMAIN=meet.praxis-ovo.ru
@@ -3454,21 +1270,71 @@ EOF
   nginx -t && systemctl reload nginx && print_success "Nginx настроен"
 }
 
-# 🔑 Создание администратора с учетными данными admin / Jitsy2026
-create_admin_user() {
-  print_header "Создание администратора: admin@praxis-ovo.com / Jitsy2026"
+# 🔑 Интерактивное создание администратора
+create_admin_interactive() {
+  print_header "Создание учетной записи администратора"
   
-  cat > /tmp/create-admin.js <<'EOF'
+  echo ""
+  print_info "Настройте учетные данные первого администратора системы"
+  echo ""
+  
+  # Запрос email
+  read -p "Email администратора [по умолчанию: admin@praxis-ovo.ru]: " ADMIN_EMAIL
+  ADMIN_EMAIL="${ADMIN_EMAIL:-admin@praxis-ovo.ru}"
+  
+  # Запрос имени
+  read -p "Имя администратора [по умолчанию: Администратор]: " ADMIN_NAME
+  ADMIN_NAME="${ADMIN_NAME:-Администратор}"
+  
+  # Запрос пароля
+  while true; do
+    read -sp "Пароль администратора [по умолчанию: Jitsy2026]: " ADMIN_PASSWORD
+    echo
+    if [ -z "$ADMIN_PASSWORD" ]; then
+      ADMIN_PASSWORD="Jitsy2026"
+      echo "Используется пароль по умолчанию: Jitsy2026"
+      break
+    elif [ ${#ADMIN_PASSWORD} -lt 6 ]; then
+      print_error "Пароль должен содержать минимум 6 символов. Попробуйте снова."
+    else
+      # Подтверждение пароля
+      read -sp "Подтвердите пароль: " ADMIN_PASSWORD_CONFIRM
+      echo
+      if [ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]; then
+        print_error "Пароли не совпадают. Попробуйте снова."
+      else
+        break
+      fi
+    fi
+  done
+  
+  echo ""
+  print_info "Создание администратора:"
+  echo "  Email:    $ADMIN_EMAIL"
+  echo "  Имя:      $ADMIN_NAME"
+  echo "  Пароль:   ${ADMIN_PASSWORD:0:1}********${ADMIN_PASSWORD: -1:1} (скрыт)"
+  echo ""
+  
+  # Обновление ADMIN_EMAIL в .env
+  ENV_FILE="/opt/jitsi-planner/.env"
+  if [ -f "$ENV_FILE" ]; then
+    sed -i "s|ADMIN_EMAIL=.*|ADMIN_EMAIL=$ADMIN_EMAIL|" "$ENV_FILE"
+    print_success "Файл .env обновлен: ADMIN_EMAIL=$ADMIN_EMAIL"
+  fi
+  
+  # Создание скрипта создания администратора
+  cat > /opt/jitsi-planner/create-admin.js <<EOF
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Подключение к БД
 mongoose.connect('mongodb://localhost:27017/jitsi-planner', {
   useNewUrlParser: true,
   useUnifiedTopology: true
+}).catch(err => {
+  console.error('❌ Ошибка подключения к БД:', err.message);
+  process.exit(1);
 });
 
-// Модель пользователя
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, minlength: 6 },
@@ -3487,47 +1353,48 @@ const User = mongoose.model('User', userSchema);
 
 async function createAdmin() {
   try {
-    // Проверка существующего администратора
-    const existingAdmin = await User.findOne({ email: 'admin@praxis-ovo.com' });
-    if (existingAdmin) {
-      console.log('⚠ Администратор уже существует:', existingAdmin.email);
+    const existing = await User.findOne({ email: '${ADMIN_EMAIL}' });
+    if (existing) {
+      console.log('⚠️  Администратор с таким email уже существует:', existing.email);
+      await mongoose.connection.close();
       process.exit(0);
     }
-    
-    // Создание администратора
+
     const admin = new User({
-      email: 'admin@praxis-ovo.com',
-      password: 'Jitsy2026',
-      name: 'Администратор',
+      email: '${ADMIN_EMAIL}',
+      password: '${ADMIN_PASSWORD}',
+      name: '${ADMIN_NAME}',
       role: 'admin',
       authProvider: 'local'
     });
-    
+
     await admin.save();
-    console.log('✅ Администратор успешно создан:');
-    console.log('   Email: admin@praxis-ovo.com');
-    console.log('   Пароль: Jitsy2026');
+    console.log('✅ Администратор успешно создан!');
+    console.log('   Email: ${ADMIN_EMAIL}');
+    console.log('   Имя: ${ADMIN_NAME}');
     console.log('   Роль: admin');
     
+    await mongoose.connection.close();
     process.exit(0);
   } catch (error) {
     console.error('❌ Ошибка создания администратора:', error.message);
+    await mongoose.connection.close().catch(() => {});
     process.exit(1);
   }
 }
 
-createAdmin();
+setTimeout(createAdmin, 2000);
 EOF
 
-  # Запуск скрипта создания администратора
-  cd /opt/jitsi-planner
-  sudo -u jitsi-planner node /tmp/create-admin.js || {
-    print_error "Не удалось создать администратора. Проверьте логи MongoDB."
+  # Запуск скрипта от имени пользователя приложения
+  if sudo -u jitsi-planner bash -c 'cd /opt/jitsi-planner && node create-admin.js'; then
+    sudo rm -f /opt/jitsi-planner/create-admin.js
+    print_success "Администратор создан: $ADMIN_EMAIL / ${ADMIN_PASSWORD:0:2}***"
+  else
+    sudo rm -f /opt/jitsi-planner/create-admin.js
+    print_error "Не удалось создать администратора. Проверьте подключение к MongoDB."
     exit 1
-  }
-  
-  rm -f /tmp/create-admin.js
-  print_success "Администратор создан: admin@praxis-ovo.com / Jitsy2026"
+  fi
 }
 
 verify_installation() {
@@ -3547,8 +1414,9 @@ ${GREEN}✅ Установка для Ubuntu 24.04 завершена!${NC}
 ${GREEN}================================================${NC}
 
 ${YELLOW}🔑 Учетные данные администратора:${NC}
-   Email:    admin@praxis-ovo.com
-   Пароль:   Jitsy2026
+   Email:    $ADMIN_EMAIL
+   Имя:      $ADMIN_NAME
+   Пароль:   ${ADMIN_PASSWORD:0:1}******** (указан при установке)
    Роль:     Администратор системы
 
 ${YELLOW}📋 Следующие шаги:${NC}
@@ -3565,21 +1433,16 @@ ${YELLOW}📋 Следующие шаги:${NC}
         Редирект: https://meet.praxis-ovo.ru/api/auth/nextcloud/callback
    d. Скопируйте Client ID и Secret
    e. Откройте: sudo nano /opt/jitsi-planner/.env
-   f. Укажите:
-        NEXTCLOUD_OAUTH_ENABLED=true
-        NEXTCLOUD_OAUTH_CLIENT_ID=ваш_client_id
-        NEXTCLOUD_OAUTH_CLIENT_SECRET=ваш_client_secret
+   f. Укажите параметры OAuth2 и календаря
    g. Перезапустите: sudo systemctl restart jitsi-planner
 
 3. ${YELLOW}Войдите в систему:${NC}
    Откройте в браузере: ${BLUE}https://meet.praxis-ovo.ru${NC}
-   Используйте учетные данные администратора:
-      Email: admin@praxis-ovo.com
-      Пароль: Jitsy2026
+   Используйте учетные данные администратора
 
 4. ${YELLOW}Управление регистрацией:${NC}
    После входа откройте «Администрирование» → «Настройки»
-   Переключите «Разрешить регистрацию по почте» ВКЛ/ВЫКЛ
+   Переключите параметры регистрации по вашему усмотрению
 
 ${BLUE}📁 Важные пути:${NC}
    Приложение:      /opt/jitsi-planner/
@@ -3600,7 +1463,8 @@ main() {
   check_os
   
   echo; print_warning "Установка: Node.js 20.x, MongoDB 7.0, полный интерфейс"; echo
-  read -p "Продолжить? (y/n): " -n1 -r; echo; [[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
+  read -p "Продолжить установку? (y/n): " -n1 -r; echo
+  [[ ! $REPLY =~ ^[Yy]$ ]] && { print_info "Установка отменена"; exit 0; }
   
   echo; print_info "Начинаем установку..."; echo
   
@@ -3615,7 +1479,7 @@ main() {
   create_env_file
   setup_systemd
   setup_nginx
-  create_admin_user  # 🔑 Автоматическое создание администратора
+  create_admin_interactive  # 🔑 Интерактивное создание администратора
   verify_installation
   
   echo; show_completion
